@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>3D Planta</title>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+      }
+    </style>
+    <script src="stats.js"></script>
+  </head>
+  <body>
+    <canvas id="c"></canvas>
+    <script>
+      const stats = new Stats();
+      stats.showPanel(0);
+      document.body.appendChild(stats.dom);
+
+      function animateStats() {
+        stats.begin();
+        stats.end();
+        requestAnimationFrame(animateStats);
+      }
+      animateStats();
+
+      let kname = [], kcode = [];
+      onkeydown = onkeyup = (e) => {
+        kname[e.key] = e.type === "keydown";
+        kcode[e.keyCode] = e.type === "keydown";
+      };
+
+      const ws = 0.05;
+      const eye = { pos: { x: 0, y: 0, z: 0 }, angle: { x: 0, y: 0 } };
+      const obj = [];
+
+      const g = (x, y, z, type) => {
+        if (type === "maceta") {
+          obj.push({ x, y, z, type });
+        }
+        if (type === "mesa") {
+          obj.push({ x, y, z, type });
+        }
+        if (type === "wall") {
+          obj.push({ x, y, z, type });
+        }
+        if (type === "carcel") {
+          obj.push({ x, y, z, type });
+        }
+        if (type === "lamp") {
+          obj.push({ x, y, z, type });
+        }
+      };
+
+      const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
+
+      onmousedown = () => {
+        if (!document.pointerLockElement) document.body.requestPointerLock();
+      };
+
+      onmousemove = (e) => {
+        if (!document.pointerLockElement) return;
+        eye.angle.x += 0.01 * e.movementX;
+        //eye.angle.y -= 0.01 * e.movementY;
+        //eye.angle.y = Math.max(-1.5, Math.min(1.5, eye.angle.y));
+      };
+
+      const c = document.getElementById("c");
+      const ctx = c.getContext("2d");
+
+      const img_maceta = new Image();
+      img_maceta.src = "planta.png";
+
+      const img_mesa = new Image();
+      img_mesa.src = "mesa.png";
+
+      const img_wall = new Image();
+      img_wall.src = "brick.jpg";
+
+      const img_carcel = new Image();
+      img_carcel.src = "carcel.png";
+
+      const img_lamp = new Image();
+      img_lamp.src = "lamp.png";
+
+      const render = () => {
+        requestAnimationFrame(render);
+        c.width = innerWidth;
+        c.height = innerHeight;
+        ctx.fillStyle = "rgb(50,50,50)";
+        ctx.fillRect(0, 0, c.width, c.height/2);
+        ctx.fillStyle = "rgb(100,100,100)";
+        ctx.fillRect(0, c.height/2, c.width, c.height);
+
+        for (let o of obj) {
+          const dx = o.x - eye.pos.x;
+          const dy = o.y - eye.pos.y;
+          const dz = o.z - eye.pos.z;
+
+          const cosY = Math.cos(eye.angle.x);
+          const sinY = Math.sin(eye.angle.x);
+          const cosX = Math.cos(eye.angle.y);
+          const sinX = Math.sin(eye.angle.y);
+
+          const rx = cosY * dx - sinY * dz;
+          const rz = sinY * dx + cosY * dz;
+          const ry = cosX * dy - sinX * rz;
+          const rz2 = sinX * dy + cosX * rz;
+
+          o._rx = rx;
+          o._ry = ry;
+          o._rz = rz2;
+          o._depth = rz2;
+        }
+
+        obj.sort((a, b) => b._depth - a._depth);
+
+        for (let o of obj) {
+          if (o._rz <= 0.01) continue;
+          const scale = 500;
+          let size = scale / o._rz;
+          const sx = o._rx / o._rz * scale + c.width / 2 - size / 2;
+          const sy = -o._ry / o._rz * scale + c.height / 2 - size / 2;
+
+          if (o.type === "maceta" && img_maceta.complete) {
+            ctx.drawImage(img_maceta, sx, sy, size, size);
+          }
+          if (o.type === "mesa" && img_mesa.complete) {
+            ctx.drawImage(img_mesa, sx, sy, size, size);
+          }
+          if (o.type === "lamp" && img_lamp.complete) {
+            ctx.drawImage(img_lamp, sx, sy, size, size);
+          }
+          if (o.type === "wall" && img_wall.complete) {
+            ctx.drawImage(img_wall, sx, sy, size, size);
+            let dx = eye.pos.x - o.x;
+            let dz = eye.pos.z - o.z;
+            let dist = Math.sqrt(dx * dx + dz * dz);
+
+            if (dist < 1.0) {
+              let pushBack = 1.0 - dist;
+              eye.pos.x += (dx / dist) * pushBack;
+              eye.pos.z += (dz / dist) * pushBack;
+            }
+          }
+          if (o.type === "carcel" && img_wall.complete) {
+            ctx.drawImage(img_carcel, sx, sy, size, size);
+            let dx = eye.pos.x - o.x;
+            let dz = eye.pos.z - o.z;
+            let dist = Math.sqrt(dx * dx + dz * dz);
+
+            if (dist < 1.0) {
+              let pushBack = 1.0 - dist;
+              eye.pos.x += (dx / dist) * pushBack;
+              eye.pos.z += (dz / dist) * pushBack;
+            }
+          }
+          if(eye.pos.x<-30){
+            eye.pos.x=-28
+          }
+          if(eye.pos.z<-30){
+            eye.pos.z=-28
+          }
+          if(eye.pos.x>30){
+            eye.pos.x=28
+          }
+          if(eye.pos.z>=30){
+            eye.pos.z=28
+          }
+        }
+
+        
+        if (kname["a"]) {
+          eye.pos.x -= ws * Math.cos(eye.angle.x);
+          eye.pos.z += ws * Math.sin(eye.angle.x);
+        }
+        if (kname["d"]) {
+          eye.pos.x += ws * Math.cos(eye.angle.x);
+          eye.pos.z -= ws * Math.sin(eye.angle.x);
+        }
+        if (kname["w"]) {
+          eye.pos.x += ws * Math.sin(eye.angle.x);
+          eye.pos.z += ws * Math.cos(eye.angle.x);
+        }
+        if (kname["s"]) {
+          eye.pos.x -= ws * Math.sin(eye.angle.x);
+          eye.pos.z -= ws * Math.cos(eye.angle.x);
+        }
+        //if (kname[" "]) eye.pos.y += ws;
+        //if (kname["x"]) eye.pos.y -= ws;
+      };
+
+      onload = () => {
+        for(let x=-30;x<30;x+=1/4){
+          g(x, 0, -30, "wall");
+        }
+        for(let z=-30;z<30;z+=1/4){
+          g(-30, 0, z, "wall");
+        }
+        for(let x=-30;x<30;x+=1/4){
+          g(x, 0, 30, "wall");
+        }
+        for(let z=-30;z<30;z+=1/4){
+          g(30, 0, z, "wall");
+        }
+        for (let x = -29; x < 28; x++) {
+          for (let z = -29; z < 28; z++) {
+            if (Math.random() < 0.1) {
+              g(x, 0, z, "maceta");
+            }else if (Math.random() < 0.1) {
+              g(x, 0, z, "mesa");
+            }else if (Math.random() < 0.1) {
+              g(x, 0, z, "wall");
+            }else if (Math.random() < 0.1) {
+              g(x, 0, z, "carcel");
+            }else if (Math.random() < 0.5) {
+              g(x, 0, z, "lamp");
+            }
+          }
+        }
+        render();
+      };
+    </script>
+  </body>
+</html>
